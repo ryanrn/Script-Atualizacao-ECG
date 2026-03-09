@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Coreum Central - Alerta ECG WinCardio
 // @namespace    https://classic.coreum.health/
-// @version      1.1.1
+// @version      1.1.2
 // @description  Alertas para novos ECG WINCARDIO
 // @author       Ryan
 // @match        https://classic.coreum.health/classic/central*
@@ -12,7 +12,7 @@
 
 (function () {
   'use strict';
-  
+
   const CONFIG = {
     debug: false,
 
@@ -38,19 +38,19 @@
         freq: 880,
         durationMs: 180,
         gapMs: 420,
-        gain: 0.8
+        gain: 0.045
       },
       expiring: {
         count: 3,
         freq: 760,
         durationMs: 170,
         gapMs: 420,
-        gain: 0.8
+        gain: 0.04
       },
       overdue: {
         freq: 980,
         durationMs: 140,
-        gain: 0.8
+        gain: 0.04
       }
     },
 
@@ -94,10 +94,6 @@
 
     audioCtx: null,
     keepAliveNodes: null,
-
-    notifications: {
-      overdueByKey: new Map()
-    },
 
     ui: {
       panel: null
@@ -457,27 +453,10 @@
     return lines.join('\n');
   }
 
-  function closeOverdueNotification(key) {
-    const notif = state.notifications.overdueByKey.get(key);
-    if (!notif) return;
-
-    try {
-      notif.close();
-    } catch (_) {}
-
-    state.notifications.overdueByKey.delete(key);
-  }
-
-  function closeAllOverdueNotifications() {
-    for (const key of Array.from(state.notifications.overdueByKey.keys())) {
-      closeOverdueNotification(key);
-    }
-  }
-
   function sendNotification(kind, data) {
-    if (!state.settings.notificationsEnabled) return null;
-    if (!('Notification' in window)) return null;
-    if (Notification.permission !== 'granted') return null;
+    if (!state.settings.notificationsEnabled) return;
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
 
     let title = 'Coreum Central';
     if (kind === 'new') title = 'Novo ECG WINCARDIO na fila';
@@ -485,32 +464,14 @@
     if (kind === 'overdue') title = 'SLA vencido';
 
     try {
-      if (kind === 'overdue') {
-        closeOverdueNotification(data.key);
-      }
-
-      const notif = new Notification(title, {
+      new Notification(title, {
         body: composeNotificationBody(data),
         tag: `coreum-${kind}-${data.key}`,
         renotify: true,
         requireInteraction: kind === 'overdue'
       });
-
-      if (kind === 'overdue') {
-        state.notifications.overdueByKey.set(data.key, notif);
-
-        notif.onclose = () => {
-          const current = state.notifications.overdueByKey.get(data.key);
-          if (current === notif) {
-            state.notifications.overdueByKey.delete(data.key);
-          }
-        };
-      }
-
-      return notif;
     } catch (err) {
       log('Notification failed', err);
-      return null;
     }
   }
 
@@ -628,12 +589,10 @@
 
   function stopOverdueLoop(key) {
     const entry = state.overdueIntervals.get(key);
-    if (entry) {
-      clearInterval(entry.intervalId);
-      state.overdueIntervals.delete(key);
-    }
+    if (!entry) return;
 
-    closeOverdueNotification(key);
+    clearInterval(entry.intervalId);
+    state.overdueIntervals.delete(key);
     updatePanel();
   }
 
@@ -641,8 +600,6 @@
     for (const key of Array.from(state.overdueIntervals.keys())) {
       stopOverdueLoop(key);
     }
-
-    closeAllOverdueNotifications();
   }
 
   function persistSessionSets() {
@@ -920,9 +877,6 @@
 
       if (toggle === 'notif') {
         state.settings.notificationsEnabled = !state.settings.notificationsEnabled;
-        if (!state.settings.notificationsEnabled) {
-          closeAllOverdueNotifications();
-        }
         saveSettings();
         return;
       }
