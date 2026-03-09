@@ -38,19 +38,19 @@
         freq: 880,
         durationMs: 180,
         gapMs: 420,
-        gain: 0.045
+        gain: 0.8
       },
       expiring: {
         count: 3,
         freq: 760,
         durationMs: 170,
         gapMs: 420,
-        gain: 0.04
+        gain: 0.8
       },
       overdue: {
         freq: 980,
         durationMs: 140,
-        gain: 0.04
+        gain: 0.8
       }
     },
 
