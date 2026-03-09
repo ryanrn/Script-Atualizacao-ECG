@@ -5,8 +5,10 @@
 // @description  Alertas para novos ECG WINCARDIO, SLA <= 2 min e SLA vencido, com painel clean e prevenção de duplicados.
 // @author       Ryan
 // @match        https://classic.coreum.health/classic/central*
+// @updateURL    https://raw.githubusercontent.com/ryanrn/Script-Atualizacao-ECG/main/coreum-central-alerta.user.js
+// @downloadURL  https://raw.githubusercontent.com/ryanrn/Script-Atualizacao-ECG/main/coreum-central-alerta.user.js
 // @run-at       document-idle
-// ==/UserScript== 
+// ==/UserScript==
 
 (function () {
   'use strict';
@@ -35,19 +37,19 @@
         freq: 880,
         durationMs: 180,
         gapMs: 420,
-        gain: 0.045
+        gain: 0.08
       },
       expiring: {
         count: 3,
         freq: 760,
         durationMs: 170,
         gapMs: 420,
-        gain: 0.04
+        gain: 0.8
       },
       overdue: {
         freq: 980,
         durationMs: 140,
-        gain: 0.04
+        gain: 0.8
       }
     },
 
