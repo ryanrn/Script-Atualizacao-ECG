@@ -37,7 +37,7 @@
         freq: 880,
         durationMs: 180,
         gapMs: 420,
-        gain: 0.08
+        gain: 0.8
       },
       expiring: {
         count: 3,
