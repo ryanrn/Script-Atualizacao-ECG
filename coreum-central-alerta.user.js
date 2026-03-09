@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Coreum Central - Alerta ECG WinCardio
 // @namespace    https://classic.coreum.health/
-// @version      1.1.0
+// @version      1.1.1
 // @description  Alertas para novos ECG WINCARDIO, SLA <= 2 min e SLA vencido, com painel clean e prevenção de duplicados.
 // @author       Ryan
 // @match        https://classic.coreum.health/classic/central*
