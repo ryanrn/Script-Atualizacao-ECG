@@ -2,7 +2,7 @@
 // @name         Coreum Central - Alerta ECG WinCardio
 // @namespace    https://classic.coreum.health/
 // @version      1.1.1
-// @description  Alertas para novos ECG WINCARDIO, SLA <= 2 min e SLA vencido, com painel clean e prevenção de duplicados.
+// @description  Alertas para novos ECG WINCARDIO
 // @author       Ryan
 // @match        https://classic.coreum.health/classic/central*
 // @updateURL    https://raw.githubusercontent.com/ryanrn/Script-Atualizacao-ECG/main/coreum-central-alerta.user.js
@@ -12,6 +12,7 @@
 
 (function () {
   'use strict';
+  
   const CONFIG = {
     debug: false,
 
@@ -37,19 +38,19 @@
         freq: 880,
         durationMs: 180,
         gapMs: 420,
-        gain: 0.8
+        gain: 0.045
       },
       expiring: {
         count: 3,
         freq: 760,
         durationMs: 170,
         gapMs: 420,
-        gain: 0.8
+        gain: 0.04
       },
       overdue: {
         freq: 980,
         durationMs: 140,
-        gain: 0.8
+        gain: 0.04
       }
     },
 
@@ -93,6 +94,10 @@
 
     audioCtx: null,
     keepAliveNodes: null,
+
+    notifications: {
+      overdueByKey: new Map()
+    },
 
     ui: {
       panel: null
@@ -452,10 +457,27 @@
     return lines.join('\n');
   }
 
+  function closeOverdueNotification(key) {
+    const notif = state.notifications.overdueByKey.get(key);
+    if (!notif) return;
+
+    try {
+      notif.close();
+    } catch (_) {}
+
+    state.notifications.overdueByKey.delete(key);
+  }
+
+  function closeAllOverdueNotifications() {
+    for (const key of Array.from(state.notifications.overdueByKey.keys())) {
+      closeOverdueNotification(key);
+    }
+  }
+
   function sendNotification(kind, data) {
-    if (!state.settings.notificationsEnabled) return;
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
+    if (!state.settings.notificationsEnabled) return null;
+    if (!('Notification' in window)) return null;
+    if (Notification.permission !== 'granted') return null;
 
     let title = 'Coreum Central';
     if (kind === 'new') title = 'Novo ECG WINCARDIO na fila';
@@ -463,14 +485,32 @@
     if (kind === 'overdue') title = 'SLA vencido';
 
     try {
-      new Notification(title, {
+      if (kind === 'overdue') {
+        closeOverdueNotification(data.key);
+      }
+
+      const notif = new Notification(title, {
         body: composeNotificationBody(data),
         tag: `coreum-${kind}-${data.key}`,
         renotify: true,
         requireInteraction: kind === 'overdue'
       });
+
+      if (kind === 'overdue') {
+        state.notifications.overdueByKey.set(data.key, notif);
+
+        notif.onclose = () => {
+          const current = state.notifications.overdueByKey.get(data.key);
+          if (current === notif) {
+            state.notifications.overdueByKey.delete(data.key);
+          }
+        };
+      }
+
+      return notif;
     } catch (err) {
       log('Notification failed', err);
+      return null;
     }
   }
 
@@ -588,10 +628,12 @@
 
   function stopOverdueLoop(key) {
     const entry = state.overdueIntervals.get(key);
-    if (!entry) return;
+    if (entry) {
+      clearInterval(entry.intervalId);
+      state.overdueIntervals.delete(key);
+    }
 
-    clearInterval(entry.intervalId);
-    state.overdueIntervals.delete(key);
+    closeOverdueNotification(key);
     updatePanel();
   }
 
@@ -599,6 +641,8 @@
     for (const key of Array.from(state.overdueIntervals.keys())) {
       stopOverdueLoop(key);
     }
+
+    closeAllOverdueNotifications();
   }
 
   function persistSessionSets() {
@@ -837,7 +881,7 @@
     const panel = document.createElement('div');
     panel.id = 'coreum-ecg-alert-panel';
     panel.innerHTML = `
-      <div class="cea-title">Alerta ECG WinCardio</div>
+      <div class="cea-title">ECG WINCARDIO Alerts</div>
 
       <div class="cea-row">
         <button type="button" data-action="enable-audio">Ativar áudio</button>
@@ -876,6 +920,9 @@
 
       if (toggle === 'notif') {
         state.settings.notificationsEnabled = !state.settings.notificationsEnabled;
+        if (!state.settings.notificationsEnabled) {
+          closeAllOverdueNotifications();
+        }
         saveSettings();
         return;
       }
